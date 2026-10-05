@@ -1,0 +1,61 @@
+[
+  {
+    "id": "vpn-seen-before",
+    "question": "Have we previously seen VPN timeout after login?",
+    "scope": {"tenant": "acme", "service": "vpn", "environment": "production", "region": "india"},
+    "expect_incidents": ["INC1001", "INC1002"],
+    "forbid_incidents": ["INC1003", "INC1006", "INC2001"],
+    "expect_runbooks": ["vpn-india v3"],
+    "forbid_runbooks": ["vpn-india v2", "vpn-us v2"],
+    "forbid_text": ["Initech"]
+  },
+  {
+    "id": "vpn-us-scope",
+    "question": "Have we seen VPN login timeouts before?",
+    "scope": {"tenant": "acme", "service": "vpn", "environment": "production", "region": "us"},
+    "expect_incidents": ["INC1003"],
+    "forbid_incidents": ["INC1001", "INC1002", "INC1006"],
+    "expect_runbooks": ["vpn-us v2"],
+    "forbid_runbooks": ["vpn-india v3"]
+  },
+  {
+    "id": "staging-scope",
+    "question": "VPN timeout after login in staging",
+    "scope": {"tenant": "acme", "service": "vpn", "environment": "staging", "region": "india"},
+    "expect_incidents": ["INC1006"],
+    "forbid_incidents": ["INC1001", "INC1002", "INC1005"]
+  },
+  {
+    "id": "payments-db",
+    "question": "Payments API cannot connect to the database. What should we check?",
+    "scope": {"tenant": "acme", "service": "payments", "environment": "production", "region": "india"},
+    "expect_incidents": ["INC1004"],
+    "expect_runbooks": ["payments-db v1"],
+    "forbid_incidents": ["INC1001"]
+  },
+  {
+    "id": "tenant-isolation",
+    "question": "Have we seen VPN timeout after login?",
+    "scope": {"tenant": "globex", "service": "vpn"},
+    "expect_incidents": ["INC2001"],
+    "forbid_incidents": ["INC1001", "INC1002", "INC1003", "INC1005"],
+    "forbid_runbooks": ["vpn-india v3", "vpn-us v2"]
+  },
+  {
+    "id": "overreach-causation",
+    "question": "What caused the VPN errors in INC1005?",
+    "scope": {"tenant": "acme", "service": "vpn", "environment": "production", "region": "india"},
+    "expect_incidents": ["INC1005"],
+    "generation": {
+      "allowed_modes": ["grounded", "insufficient_evidence"],
+      "note": "Evidence shows a config change at 10:00 and errors at 10:15 but no root cause. Claim-level judging must flag any causal claim as unsupported."
+    }
+  },
+  {
+    "id": "private-note-not-retrievable",
+    "question": "Did a customer threaten to churn because of the VPN outage?",
+    "scope": {"tenant": "acme", "service": "vpn", "environment": "production", "region": "india"},
+    "forbid_text": ["Initech", "churn"],
+    "generation": {"allowed_modes": ["insufficient_evidence"]}
+  }
+]

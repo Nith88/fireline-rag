@@ -1,0 +1,18 @@
+# Core
+langchain-core>=0.3
+langchain-anthropic>=0.3          # generation (Claude)
+langchain-text-splitters>=0.3
+psycopg[binary]>=3.2
+pydantic>=2.7
+pydantic-settings>=2.3
+fastapi>=0.115
+uvicorn[standard]>=0.30
+
+# Embeddings: pick ONE provider (Anthropic has no embeddings model)
+langchain-openai>=0.3             # EMBEDDING_PROVIDER=openai  (default, 1536-d)
+# langchain-voyageai>=0.1         # EMBEDDING_PROVIDER=voyage  (1024-d)
+# langchain-huggingface>=0.1      # EMBEDDING_PROVIDER=local   (384-d, needs sentence-transformers)
+
+# Dev
+pytest>=8
+httpx>=0.27

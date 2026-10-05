@@ -1,0 +1,27 @@
+[
+  {
+    "tenant": "acme", "slug": "vpn-india", "version": 3, "status": "active",
+    "title": "VPN login timeout (India)", "service": "vpn", "region": "india",
+    "content": "# VPN login timeout (India)\n\n## Check first\nCheck authentication provider latency and the token validation timeout settings. The expected token validation timeout is 10 seconds.\n\n## Escalate\nIf identity provider latency is above 2 seconds, page the identity team. Do not restart the VPN gateway while logins are failing, because that drops active sessions.\n\n## Recent changes\nAsk the platform team whether an identity provider or VPN configuration change was deployed in the last hour."
+  },
+  {
+    "tenant": "acme", "slug": "vpn-india", "version": 2, "status": "retired",
+    "title": "VPN login timeout (India) - old", "service": "vpn", "region": "india",
+    "content": "# VPN login timeout (India), version 2\n\nRestart the VPN gateway whenever users report login timeouts."
+  },
+  {
+    "tenant": "acme", "slug": "vpn-us", "version": 2, "status": "active",
+    "title": "VPN login timeout (US)", "service": "vpn", "region": "us",
+    "content": "# VPN login timeout (US)\n\nFail over to the secondary identity provider in us-east before investigating clients. Then confirm the VPN client version is 7.3 or newer."
+  },
+  {
+    "tenant": "acme", "slug": "payments-db", "version": 1, "status": "active",
+    "title": "Payments database connection failure", "service": "payments", "region": null,
+    "content": "# Payments database connection failure\n\n## Check first\nCheck the connection count on the primary against max_connections. Look for connection leaks introduced by a recent deploy.\n\n## Mitigate\nRoll back the suspect deploy, terminate idle sessions, then raise the pool limit only if the leak is ruled out."
+  },
+  {
+    "tenant": "acme", "slug": "notifications", "version": 1, "status": "active",
+    "title": "Notification delivery delays", "service": "notifications", "region": null,
+    "content": "# Notification delivery delays\n\nWhen Slack returns 429, honour the Retry-After header and use exponential backoff with jitter. Never retry all clients at the same instant."
+  }
+]

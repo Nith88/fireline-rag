@@ -1,0 +1,78 @@
+[
+  {
+    "tenant": "acme", "key": "INC1001", "title": "VPN timeout after login",
+    "status": "RESOLVED", "severity": "P2", "service": "vpn", "environment": "production", "region": "india",
+    "description": "Multiple users are reporting VPN timeout after login. Started around 10:20 AM. Authentication service looks healthy.",
+    "timeline": [
+      {"text": "10:00 AM identity provider configuration change deployed by the platform team."},
+      {"text": "10:25 AM token validation latency on the identity provider measured at 6 seconds."},
+      {"text": "PRIVATE: Customer Initech threatened to churn over this outage.", "visibility": "private"}
+    ],
+    "logs": ["vpn-gw-02 auth_timeout user=* upstream=idp.internal elapsed=5001ms", "vpn-gw-02 auth_timeout user=* upstream=idp.internal elapsed=5003ms"],
+    "resolution": "Root cause: the identity provider configuration change reduced the token validation timeout from 10 seconds to 2 seconds. Restored the timeout to 10 seconds and logins recovered within 5 minutes."
+  },
+  {
+    "tenant": "acme", "key": "INC1002", "title": "VPN login failures during authentication provider latency",
+    "status": "RESOLVED", "severity": "P2", "service": "vpn", "environment": "production", "region": "india",
+    "description": "VPN logins failing intermittently for the Chennai office. The authentication provider is responding slowly.",
+    "timeline": [
+      {"text": "Authentication provider latency p95 rose above 3 seconds after a traffic spike."}
+    ],
+    "logs": [],
+    "resolution": "Scaled out the authentication provider from 3 to 6 nodes. Latency returned to normal."
+  },
+  {
+    "tenant": "acme", "key": "INC1003", "title": "VPN client 7.2 login timeout",
+    "status": "RESOLVED", "severity": "P3", "service": "vpn", "environment": "production", "region": "us",
+    "description": "US users on VPN client version 7.2 time out at login. Users on 7.3 are unaffected.",
+    "timeline": [{"text": "Reproduced on client 7.2 only; the gateway logs show no errors."}],
+    "logs": [],
+    "resolution": "Pushed VPN client 7.3 to all US users. Version 7.2 is blocked at the gateway."
+  },
+  {
+    "tenant": "acme", "key": "INC1004", "title": "Database Connection Failure",
+    "status": "RESOLVED", "severity": "P1", "service": "payments", "environment": "production", "region": "india",
+    "description": "Payments API cannot connect to PostgreSQL. Checkout requests are failing with 500 errors.",
+    "timeline": [
+      {"text": "Connection count on the primary reached 100 of 100 allowed connections."},
+      {"text": "A recent deploy was found leaking connections in the refund handler."}
+    ],
+    "logs": ["payments-api FATAL: remaining connection slots are reserved for non-replication superuser connections"],
+    "resolution": "Rolled back the deploy that leaked connections, terminated idle sessions, and raised the pool limit for payments-api from 20 to 40."
+  },
+  {
+    "tenant": "acme", "key": "INC1005", "title": "VPN errors increasing after configuration change",
+    "status": "OPEN", "severity": "P2", "service": "vpn", "environment": "production", "region": "india",
+    "description": "VPN connection errors are increasing. Investigation is ongoing and no root cause has been identified.",
+    "timeline": [
+      {"text": "A VPN configuration change occurred at 10:00 AM."},
+      {"text": "VPN errors increased at 10:15 AM."}
+    ],
+    "logs": [],
+    "resolution": ""
+  },
+  {
+    "tenant": "acme", "key": "INC1006", "title": "VPN timeout after login in staging",
+    "status": "RESOLVED", "severity": "P4", "service": "vpn", "environment": "staging", "region": "india",
+    "description": "Staging VPN logins time out. Production is unaffected.",
+    "timeline": [{"text": "The staging identity provider certificate had expired."}],
+    "logs": [],
+    "resolution": "Renewed the staging identity provider certificate."
+  },
+  {
+    "tenant": "acme", "key": "INC1007", "title": "Slack notifications delayed",
+    "status": "RESOLVED", "severity": "P3", "service": "notifications", "environment": "production", "region": "europe",
+    "description": "Incident notifications to Slack arrive up to 10 minutes late for European teams.",
+    "timeline": [{"text": "The Slack API returned 429 Too Many Requests during the alert storm."}],
+    "logs": [],
+    "resolution": "Added exponential backoff with jitter to the notification worker and honoured the Retry-After header."
+  },
+  {
+    "tenant": "globex", "key": "INC2001", "title": "VPN timeout after login",
+    "status": "RESOLVED", "severity": "P2", "service": "vpn", "environment": "production", "region": "india",
+    "description": "Globex users report VPN timeout after login.",
+    "timeline": [{"text": "Globex firewall rule blocked the identity provider subnet."}],
+    "logs": [],
+    "resolution": "Globex-only fix: removed the firewall rule that blocked the identity provider subnet."
+  }
+]
