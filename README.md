@@ -1,7 +1,9 @@
 # Fireline RAG
 
 A grounded Q&A assistant over Fireline's past incidents and runbooks, built from the Fireline
-system-design doc 
+system-design doc.
+
+**🔴 Live demo:** https://fireline-rag.streamlit.app/
 
 **Stack:** Python 3.12 · LangChain (`langchain-core`, `langchain-google-genai`, `langchain-text-splitters`) ·
 PostgreSQL + pgvector · FastAPI · Gemini for generation.
@@ -51,7 +53,8 @@ python -m app.cli ui            # Streamlit UI at http://localhost:8501
 
 The Streamlit UI ([app/ui.py](app/ui.py)) calls `RagService` in-process: scope filters in the sidebar,
 answer with a mode badge (grounded / insufficient evidence / fallback), confidence, latency, and
-expandable cited and retrieved evidence.
+expandable cited and retrieved evidence. A hosted copy is running at
+[fireline-rag.streamlit.app](https://fireline-rag.streamlit.app/).
 
 ```bash
 curl -s localhost:8000/v1/ask \
@@ -63,8 +66,10 @@ curl -s localhost:8000/v1/ask \
 
 ### Embeddings
 
-Embeddings are configured separately from Gemini; pick one: `EMBEDDING_PROVIDER=openai` (default, 1536-d),
-`voyage` (1024-d) or `local` (384-d, no API key). Changing provider changes the vector size, so run
+Embeddings are configured separately from the Gemini generation model (primary `gemini-3.6-flash`, with
+`gemini-3.5-flash-lite` as a fallback on errors such as 503). Pick one provider: `EMBEDDING_PROVIDER=openai`
+(default, 1536-d), `gemini` (`gemini-embedding-001`, only needs `GOOGLE_API_KEY`), `voyage` (1024-d),
+`local` (384-d, no API key) or `fake` (offline tests only). Changing provider changes the vector size, so run
 `cli reset && cli migrate && cli ingest` afterwards. Every chunk records its `embedding_model` and
 retrieval only compares vectors from the active model.
 
