@@ -7,10 +7,10 @@ import logging
 import time
 from typing import Callable
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.runnables import Runnable
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.config import get_settings
 from app.embeddings import get_embeddings
@@ -21,12 +21,21 @@ from app.retriever import FirelineRetriever
 log = logging.getLogger("fireline.rag")
 
 
+def build_chat_model(max_tokens: int, timeout: float, max_retries: int, model: str | None = None) -> ChatGoogleGenerativeAI:
+    s = get_settings()
+    # max_tokens is generous because Gemini "thinking" tokens count against the output budget.
+    return ChatGoogleGenerativeAI(model=model or s.llm_model, max_output_tokens=max_tokens, timeout=timeout, max_retries=max_retries)
+
+
 def build_structured_llm() -> Runnable:
     s = get_settings()
-    # No `temperature`: current Claude models reject non-default values. json_schema mode is used
-    # because forced tool-calling is not supported for structured output on newer models.
-    llm = ChatAnthropic(model=s.llm_model, max_tokens=800, timeout=s.llm_timeout_s, max_retries=0)
-    return llm.with_structured_output(TriageAnswer, method="json_schema")
+    # Timeout is not retry: max_retries=0. Instead a 503 "high demand" (fast failure) switches to a
+    # second model; if that also fails, RagService degrades to raw evidence.
+    primary = build_chat_model(2000, s.llm_timeout_s, 0).with_structured_output(TriageAnswer, method="json_schema")
+    if not s.llm_fallback_model:
+        return primary
+    backup = build_chat_model(2000, s.llm_timeout_s, 0, model=s.llm_fallback_model).with_structured_output(TriageAnswer, method="json_schema")
+    return primary.with_fallbacks([backup])
 
 
 def to_evidence(doc: Document) -> Evidence:

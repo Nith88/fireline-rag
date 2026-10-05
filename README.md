@@ -3,8 +3,8 @@
 A grounded Q&A assistant over Fireline's past incidents and runbooks, built from the Fireline
 system-design doc 
 
-**Stack:** Python 3.12 · LangChain (`langchain-core`, `langchain-anthropic`, `langchain-text-splitters`) ·
-PostgreSQL + pgvector · FastAPI · Claude for generation.
+**Stack:** Python 3.12 · LangChain (`langchain-core`, `langchain-google-genai`, `langchain-text-splitters`) ·
+PostgreSQL + pgvector · FastAPI · Gemini for generation.
 
 > Engineers ask: *"Have we seen VPN timeout after login before?"*
 > The system retrieves scoped evidence, asks the model for a **cited, structured** answer, validates it,
@@ -15,7 +15,7 @@ PostgreSQL + pgvector · FastAPI · Claude for generation.
 ```
 question ─▶ embed ─▶ pgvector search (tenant + service/env/region filters,
                                       private chunks and retired runbooks excluded)
-        ─▶ evidence blocks ─▶ versioned prompt ─▶ Claude (JSON-schema output)
+        ─▶ evidence blocks ─▶ versioned prompt ─▶ Gemini (JSON-schema output)
         ─▶ schema validation ─▶ policy (citations must exist in retrieved set)
         ─▶ grounded answer │ insufficient_evidence │ fallback (raw evidence, never a 500)
 ```
@@ -37,7 +37,7 @@ question ─▶ embed ─▶ pgvector search (tenant + service/env/region filter
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env            # add OPENAI_API_KEY (embeddings) and ANTHROPIC_API_KEY
+cp .env.example .env            # add OPENAI_API_KEY (embeddings) and GOOGLE_API_KEY (Gemini)
 docker compose up -d            # Postgres 16 + pgvector (also creates fireline_test)
 
 python -m app.cli migrate
@@ -46,7 +46,12 @@ python -m app.cli ingest        # 8 sample incidents (2 tenants), 5 runbooks
 python -m app.cli retrieve "VPN timeout after login" --service vpn --env production --region india
 python -m app.cli ask "Have we seen VPN timeout after login before?" --service vpn --env production --region india
 python -m app.cli serve         # http://127.0.0.1:8000/docs
+python -m app.cli ui            # Streamlit UI at http://localhost:8501
 ```
+
+The Streamlit UI ([app/ui.py](app/ui.py)) calls `RagService` in-process: scope filters in the sidebar,
+answer with a mode badge (grounded / insufficient evidence / fallback), confidence, latency, and
+expandable cited and retrieved evidence.
 
 ```bash
 curl -s localhost:8000/v1/ask \
@@ -58,7 +63,7 @@ curl -s localhost:8000/v1/ask \
 
 ### Embeddings
 
-Anthropic has no embeddings model, so pick one: `EMBEDDING_PROVIDER=openai` (default, 1536-d),
+Embeddings are configured separately from Gemini; pick one: `EMBEDDING_PROVIDER=openai` (default, 1536-d),
 `voyage` (1024-d) or `local` (384-d, no API key). Changing provider changes the vector size, so run
 `cli reset && cli migrate && cli ingest` afterwards. Every chunk records its `embedding_model` and
 retrieval only compares vectors from the active model.
@@ -68,7 +73,7 @@ retrieval only compares vectors from the active model.
 ```bash
 python -m pytest                          # 20 tests: scoping, isolation, policy, fallback, request config
 python -m app.cli eval                    # retrieval scope/recall checks (use a REAL embedding provider)
-python -m app.cli eval --generate         # + calls Claude, checks answer mode
+python -m app.cli eval --generate         # + calls Gemini, checks answer mode
 python -m app.cli eval --judge            # + claim-by-claim support check
 ```
 
@@ -79,9 +84,9 @@ rules**, not answer quality. Measure quality with `eval` and real embeddings.
 
 Verified against a real PostgreSQL 16 + pgvector instance: schema, ingestion, filtering, tenant isolation,
 private-note exclusion, retired-runbook exclusion, cascade delete, embedding-model isolation, all
-validation/fallback paths (stub LLM), and the exact Anthropic request payload.
+validation/fallback paths (stub LLM), and the Gemini chain construction.
 
-**Not yet run:** live calls to OpenAI embeddings and Claude (no keys in the build environment), so
+**Not yet run:** live calls to OpenAI embeddings and Gemini (no keys in the build environment), so
 retrieval quality, real latency against `LLM_TIMEOUT_S`, and `eval --judge` are untested. Run
 `eval --judge` first once keys are set.
 

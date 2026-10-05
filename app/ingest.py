@@ -1,4 +1,4 @@
-"""Chunk -> embed -> store (Module 2, LU2.11)."""
+"""Chunk -> embed -> store"""
 import json
 from pathlib import Path
 

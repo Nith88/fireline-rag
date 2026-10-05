@@ -1,14 +1,15 @@
 # Core
 langchain-core>=0.3
-langchain-anthropic>=0.3          # generation (Claude)
+langchain-google-genai>=2.0       # generation (Gemini)
 langchain-text-splitters>=0.3
 psycopg[binary]>=3.2
 pydantic>=2.7
 pydantic-settings>=2.3
 fastapi>=0.115
 uvicorn[standard]>=0.30
+streamlit>=1.40                   # demo UI (app/ui.py)
 
-# Embeddings: pick ONE provider (Anthropic has no embeddings model)
+# Embeddings: pick ONE provider (separate from the Gemini generation model)
 langchain-openai>=0.3             # EMBEDDING_PROVIDER=openai  (default, 1536-d)
 # langchain-voyageai>=0.1         # EMBEDDING_PROVIDER=voyage  (1024-d)
 # langchain-huggingface>=0.1      # EMBEDDING_PROVIDER=local   (384-d, needs sentence-transformers)

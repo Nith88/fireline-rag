@@ -4,7 +4,7 @@ policy, which are deterministic. Retrieval *quality* is measured with `python -m
 using a real embedding provider."""
 import os
 
-os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "postgresql://fireline:fireline@localhost:5432/fireline_test")
+os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "postgresql://fireline:fireline@localhost:5433/fireline_test")
 os.environ["EMBEDDING_PROVIDER"] = "fake"
 os.environ["MIN_SIMILARITY"] = "-1"   # keep every row so filters are what is under test
 os.environ["K_INCIDENTS"] = "50"

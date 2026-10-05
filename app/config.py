@@ -1,32 +1,38 @@
 """Settings, read from environment variables / .env."""
 from functools import lru_cache
 
+from dotenv import load_dotenv
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Anthropic does not offer an embeddings model, so embeddings come from another provider.
+# Provider SDKs (OpenAI, Google) read their API keys from os.environ, which Settings does not populate.
+load_dotenv()
+
+# Embeddings are configured separately from the generation model (Gemini); pick a provider below.
 DEFAULT_MODELS = {
     "openai": "text-embedding-3-small",
     "voyage": "voyage-3",
     "local": "sentence-transformers/all-MiniLM-L6-v2",
+    "gemini": "gemini-embedding-001",
     "fake": "fake-deterministic",  # offline plumbing tests only; similarity is meaningless
 }
-DEFAULT_DIMS = {"openai": 1536, "voyage": 1024, "local": 384, "fake": 1536}
+DEFAULT_DIMS = {"openai": 1536, "voyage": 1024, "local": 384, "gemini": 768, "fake": 1536}
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql://fireline:fireline@localhost:5432/fireline"
+    database_url: str = "postgresql://fireline:fireline@localhost:5433/fireline"
 
     embedding_provider: str = "openai"
     embedding_model: str | None = None
     embedding_dim: int | None = None
 
-    llm_model: str = "claude-sonnet-5-5"
+    llm_model: str = "gemini-3.6-flash"
     # The design doc budgets 3 s for a dashboard summary. A Q&A answer is a longer call, so this
     # defaults higher; measure p95 and tune.
-    llm_timeout_s: float = 8.0
+    llm_fallback_model: str | None = "gemini-3.5-flash-lite"  # used when the primary model errors (e.g. 503)
+    llm_timeout_s: float = 30.0  # Gemini rejects deadlines under 10 s
 
     k_incidents: int = 5
     k_runbooks: int = 3

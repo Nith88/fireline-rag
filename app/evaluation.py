@@ -1,4 +1,4 @@
-"""Retrieval + grounding evaluation (Module 3, LU3.9).
+"""Retrieval + grounding evaluation .
 
 Retrieval checks are deterministic and need no LLM: expected evidence present, forbidden evidence
 (wrong tenant, region, environment, retired runbook, private note) absent.
@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
@@ -17,7 +16,7 @@ from app.embeddings import get_embeddings
 from app.ids import tenant_uuid
 from app.models import Scope
 from app.prompts import format_evidence
-from app.rag import RagService
+from app.rag import RagService, build_chat_model
 from app.retriever import FirelineRetriever
 
 
@@ -48,7 +47,7 @@ def run(path: Path, generate: bool = False, judge: bool = False) -> bool:
     s = get_settings()
     cases = json.loads(path.read_text())
     service = RagService() if generate else None
-    judge_llm = ChatAnthropic(model=s.llm_model, max_tokens=1200, timeout=30, max_retries=1).with_structured_output(JudgeResult, method="json_schema") if judge else None
+    judge_llm = build_chat_model(max_tokens=3000, timeout=30, max_retries=1).with_structured_output(JudgeResult, method="json_schema") if judge else None
 
     all_ok = True
     for case in cases:

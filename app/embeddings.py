@@ -16,6 +16,10 @@ def get_embeddings() -> Embeddings:
         from langchain_voyageai import VoyageAIEmbeddings
 
         return VoyageAIEmbeddings(model=s.embedding_model)
+    if s.embedding_provider == "gemini":
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+        return GoogleGenerativeAIEmbeddings(model=f"models/{s.embedding_model}", output_dimensionality=s.embedding_dim)
     if s.embedding_provider == "local":
         from langchain_huggingface import HuggingFaceEmbeddings
 

@@ -68,6 +68,12 @@ def cmd_serve(args):
     uvicorn.run("app.api:app", host=args.host, port=args.port, reload=False)
 
 
+def cmd_ui(args):
+    import subprocess
+
+    sys.exit(subprocess.call([sys.executable, "-m", "streamlit", "run", str(ROOT / "app" / "ui.py"), "--server.port", str(args.port)]))
+
+
 def cmd_eval(args):
     from app.evaluation import run
 
@@ -101,9 +107,13 @@ def main():
     sv.add_argument("--port", type=int, default=8000)
     sv.set_defaults(fn=cmd_serve)
 
+    ui = sub.add_parser("ui", help="Streamlit demo UI")
+    ui.add_argument("--port", type=int, default=8501)
+    ui.set_defaults(fn=cmd_ui)
+
     ev = sub.add_parser("eval")
     ev.add_argument("--file", default=str(ROOT / "eval" / "eval_set.json"))
-    ev.add_argument("--generate", action="store_true", help="also call the LLM (needs ANTHROPIC_API_KEY)")
+    ev.add_argument("--generate", action="store_true", help="also call the LLM (needs GOOGLE_API_KEY)")
     ev.add_argument("--judge", action="store_true", help="claim-level support check (implies --generate)")
     ev.set_defaults(fn=cmd_eval)
 
