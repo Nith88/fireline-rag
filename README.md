@@ -56,13 +56,19 @@ answer with a mode badge (grounded / insufficient evidence / fallback), confiden
 expandable cited and retrieved evidence. A hosted copy is running at
 [fireline-rag.streamlit.app](https://fireline-rag.streamlit.app/).
 
-For Streamlit Community Cloud, add the Gemini key under **App settings → Secrets**:
+Streamlit Community Cloud does not run the Docker Compose Postgres service. Use a hosted PostgreSQL
+instance with the `vector` extension enabled, then add both values under **App settings → Secrets**:
 
 ```toml
 GOOGLE_API_KEY = "your-gemini-api-key"
+DATABASE_URL = "postgresql://user:password@host:5432/database?sslmode=require"
 ```
 
-The UI reads this secret when starting the app; a non-empty `GOOGLE_API_KEY` environment variable takes precedence.
+Before the app can retrieve anything, point your local `.env` at that same hosted database and run
+`python -m app.cli migrate` followed by `python -m app.cli ingest`. These commands create the schema
+and load the sample incidents and runbooks into the remote database. Keep `EMBEDDING_PROVIDER` and
+`EMBEDDING_DIM` consistent between ingestion and the hosted app. Existing non-empty environment
+variables take precedence over Streamlit Secrets for both keys.
 
 ```bash
 curl -s localhost:8000/v1/ask \

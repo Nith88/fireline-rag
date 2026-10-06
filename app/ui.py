@@ -28,10 +28,14 @@ st.set_page_config(page_title="Fireline RAG", page_icon="🔥", layout="wide")
 
 try:
     google_api_key = st.secrets.get("GOOGLE_API_KEY")
+    database_url = st.secrets.get("DATABASE_URL")
 except StreamlitSecretNotFoundError:
     google_api_key = None
+    database_url = None
 if google_api_key and not os.environ.get("GOOGLE_API_KEY"):
     os.environ["GOOGLE_API_KEY"] = str(google_api_key)
+if database_url and not os.environ.get("DATABASE_URL"):
+    os.environ["DATABASE_URL"] = str(database_url)
 
 
 @st.cache_resource
