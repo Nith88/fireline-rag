@@ -24,7 +24,8 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://fireline:fireline@localhost:5433/fireline"
 
-    embedding_provider: str = "openai"
+    embedding_provider: str = "gemini"  # one of DEFAULT_MODELS.keys()
+    google_api_key: str | None = None
     embedding_model: str | None = None
     embedding_dim: int | None = None
 
