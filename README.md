@@ -56,6 +56,14 @@ answer with a mode badge (grounded / insufficient evidence / fallback), confiden
 expandable cited and retrieved evidence. A hosted copy is running at
 [fireline-rag.streamlit.app](https://fireline-rag.streamlit.app/).
 
+For Streamlit Community Cloud, add the Gemini key under **App settings → Secrets**:
+
+```toml
+GOOGLE_API_KEY = "your-gemini-api-key"
+```
+
+The UI reads this secret when starting the app; a non-empty `GOOGLE_API_KEY` environment variable takes precedence.
+
 ```bash
 curl -s localhost:8000/v1/ask \
   -H 'X-Tenant-Id: f283a00f-9d8d-5f54-957a-03ae3707e995' -H 'content-type: application/json' \

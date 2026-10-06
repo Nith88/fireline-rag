@@ -1,9 +1,11 @@
 """Streamlit UI: streamlit run app/ui.py  (or: python -m app.cli ui)"""
+import os
 import sys
 from pathlib import Path
 
 import psycopg
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -23,6 +25,13 @@ EXAMPLES = [
 ]
 
 st.set_page_config(page_title="Fireline RAG", page_icon="🔥", layout="wide")
+
+try:
+    google_api_key = st.secrets.get("GOOGLE_API_KEY")
+except StreamlitSecretNotFoundError:
+    google_api_key = None
+if google_api_key and not os.environ.get("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = str(google_api_key)
 
 
 @st.cache_resource
