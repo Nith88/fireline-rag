@@ -60,7 +60,9 @@ class RagService:
         s = get_settings()
         return FirelineRetriever(
             embeddings=self._embeddings or get_embeddings(),
-            scope=scope,
+            # Re-validate through this module's Scope: Streamlit reloads app.models on code changes, so a
+            # cached RagService can receive a Scope from a newer copy of the class.
+            scope=Scope.model_validate(scope.model_dump()),
             k_incidents=s.k_incidents,
             k_runbooks=s.k_runbooks,
             min_similarity=s.min_similarity,
