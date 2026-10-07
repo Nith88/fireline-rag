@@ -18,6 +18,8 @@ from app.config import get_settings
 
 INCIDENTS = "incident_chunks"
 RUNBOOKS = "runbook_chunks"
+RECORDS = "incident_records"  # one record per incident with its structured fields, for analytics
+ALL_COLLECTIONS = (INCIDENTS, RUNBOOKS, RECORDS)
 ANY_REGION = "*"  # runbook region NULL = applies to every region
 
 # What the API / UI map to "retrieval unavailable".
@@ -41,7 +43,7 @@ def collection(kind: str) -> Collection:
 def reset() -> None:
     s = get_settings()
     client = get_client()
-    for kind in (INCIDENTS, RUNBOOKS):
+    for kind in ALL_COLLECTIONS:
         try:
             client.delete_collection(f"{s.chroma_prefix}{kind}")
         except (ValueError, ChromaError):  # not created yet

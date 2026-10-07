@@ -53,6 +53,22 @@ answer with a mode badge (grounded / insufficient evidence / fallback), confiden
 expandable cited and retrieved evidence. A hosted copy is running at
 [fireline-rag.streamlit.app](https://fireline-rag.streamlit.app/).
 
+### Analytics reports
+
+The **Reports** tab in the UI ([app/ui.py](app/ui.py)) runs an analytics agent ([app/analytics.py](app/analytics.py)) that
+writes a report from a plain-language request ("What are the recurring root causes?"). It works in two steps:
+a tool-calling loop gathers data (`incident_counts`, `list_incidents`, `search_incident_details`), then a
+structured-output call writes the report from that data only.
+
+- Tools are bound to the sidebar scope in code, so the model cannot switch tenant or widen the scope.
+- The overview (counts, open incidents, charts) is computed without the model and is always shown.
+- A report that mentions an incident id that is not in the tenant's data is rejected and the overview is shown instead.
+- Reports use the `incident_records` collection (one record per incident with severity, status, service, region).
+  After upgrading, run `python -m app.cli ingest` once to create it. It is idempotent.
+- The data has no timestamps, so there are no trend, duration or MTTR metrics yet.
+- Each report makes 2-4 Gemini calls. The free tier allows about 5 per minute per model, so back-to-back reports
+  can fall back to the overview with `llm_error:GoogleRateLimitError`.
+
 ### Chroma Cloud
 
 Create a database at [trychroma.com](https://www.trychroma.com/), then put its credentials in `.env`:

@@ -45,6 +45,7 @@ def ingest_incidents(path: Path) -> int:
     s, emb = get_settings(), get_embeddings()
     incidents = json.loads(path.read_text())
     col = store.collection(store.INCIDENTS)
+    records = store.collection(store.RECORDS)
     for inc in incidents:
         tenant = str(tenant_uuid(inc["tenant"]))
         inc_id = str(uid("incident", inc["tenant"], inc["key"]))
@@ -67,6 +68,19 @@ def ingest_incidents(path: Path) -> int:
                 })
                 for src, idx, _, vis in chunks
             ],
+        )
+        # Structured fields live only here (chunks carry just what retrieval filters on). The title vector
+        # is reused as the record's embedding, so this costs no extra embedding call.
+        records.upsert(
+            ids=[inc_id],
+            documents=[f'{inc["title"]}\n{inc.get("resolution", "")}'.strip()],
+            embeddings=[vectors[0]],
+            metadatas=[store.clean({
+                "tenant_id": tenant, "ref": inc["key"], "title": inc["title"], "status": inc["status"],
+                "severity": inc["severity"], "service": inc.get("service"), "environment": inc.get("environment"),
+                "region": inc.get("region"), "resolution": inc.get("resolution", "")[:600],
+                "embedding_model": s.embedding_model_id,
+            })],
         )
     return len(incidents)
 

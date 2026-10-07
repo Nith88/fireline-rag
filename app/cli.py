@@ -14,7 +14,7 @@ def cmd_migrate(_):
     """Create the collections (idempotent). Chroma needs no schema; the vector size is set by the first insert."""
     from app import store
 
-    for kind in (store.INCIDENTS, store.RUNBOOKS):
+    for kind in store.ALL_COLLECTIONS:
         store.collection(kind)
     print(f"collections ready (embedding dim {get_settings().embedding_dim})")
 
