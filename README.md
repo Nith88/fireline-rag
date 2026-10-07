@@ -159,7 +159,7 @@ retrieval quality, real latency against `LLM_TIMEOUT_S`, and `eval --judge` are 
 The four most recent commits, newest first. Versions are numbered oldest to newest from v0.1; they are labels in this
 table only (no git tags).
 
-| Version | Commit | Date | Change |
+| Version | Commit | Change |
 |---|---|---|---|
 | **v0.4** | `329db28` | **PDF incident reports.** Tenants upload text PDFs, ask cited questions, generate reports and email them over SMTP to allow-listed recipients. Adds `app/documents.py`, `app/emailer.py`, a Documents tab, a `document_chunks` collection, and `SMTP_*` / `EMAIL_ALLOWLIST` settings. The analytics gathering step now falls back to the backup model on a 503. |
 | **v0.3** | `c8d455b` | **Analytics agent.** A Reports tab where an agent gathers counts, listings and semantic-search results with tenant-bound tools, then writes a report. Reports that cite an unknown incident id are rejected. Adds `app/analytics.py` and an `incident_records` collection (re-run `cli ingest`). |
