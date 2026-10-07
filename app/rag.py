@@ -82,15 +82,15 @@ class RagService:
         if not evidence:  # skip the LLM call entirely: nothing to ground an answer on
             return respond("insufficient_evidence", evidence=[])
 
-        def fallback(reason: str) -> AskResponse:
-            log.warning("rag_fallback reason=%s", reason)  # alert on the fallback rate (Module 4, LU4.9)
+        def fallback(reason: str, exc: Exception | None = None) -> AskResponse:
+            log.warning("rag_fallback reason=%s", reason, exc_info=exc)  # alert on the fallback rate (Module 4, LU4.9)
             return respond("fallback", evidence=evidence, fallback_reason=reason)
 
         # 2. Generate a structured answer from the selected evidence.
         try:
             out = self.chain.invoke({"question": question, "evidence": format_evidence(evidence)})
         except Exception as exc:  # timeout, rate limit, provider error, unparsable output
-            return fallback(f"llm_error:{type(exc).__name__}")
+            return fallback(f"llm_error:{type(exc).__name__}", exc)
         if not isinstance(out, TriageAnswer):
             return fallback("invalid_output")
 
