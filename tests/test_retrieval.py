@@ -1,7 +1,7 @@
 import pytest
 
 from app.config import get_settings
-from app.db import connect
+from app import store
 from app.embeddings import get_embeddings
 from app.ids import tenant_uuid
 from app.models import Scope
@@ -44,9 +44,8 @@ def test_staging_is_separate_from_production():
 def test_private_notes_are_never_retrieved():
     _, _, docs = retrieve()
     assert not any("Initech" in d.page_content for d in docs)
-    with connect() as conn:  # ...but the private chunk does exist in storage
-        n = conn.execute("SELECT count(*) AS n FROM incident_chunks WHERE visibility='private'").fetchone()["n"]
-    assert n == 1
+    stored = store.collection(store.INCIDENTS).get(where={"visibility": {"$eq": "private"}})
+    assert len(stored["ids"]) == 1  # ...but the private chunk does exist in storage
 
 
 def test_retired_runbooks_are_excluded():
@@ -60,21 +59,29 @@ def test_region_filter_keeps_global_runbooks():
 
 
 def test_vectors_from_other_embedding_models_are_ignored():
-    with connect() as conn:
-        conn.execute("UPDATE incident_chunks SET embedding_model = 'other:model'")
+    col = store.collection(store.INCIDENTS)
+    rows = col.get(include=["metadatas"])
+    col.update(ids=rows["ids"], metadatas=[{**m, "embedding_model": "other:model"} for m in rows["metadatas"]])
     try:
         inc, _, _ = retrieve()
         assert inc == set()
     finally:
-        with connect() as conn:
-            conn.execute("UPDATE incident_chunks SET embedding_model = %s", (get_settings().embedding_model_id,))
+        col.update(ids=rows["ids"], metadatas=rows["metadatas"])
 
 
-def test_deleting_an_incident_cascades_to_its_chunks():
-    with connect() as conn:
-        conn.execute("DELETE FROM incidents WHERE external_key = 'INC1007'")
+def test_reingesting_does_not_duplicate_chunks():
+    from tests.conftest import ROOT
+    from app.ingest import ingest_incidents
+
+    col = store.collection(store.INCIDENTS)
+    before = col.count()
+    ingest_incidents(ROOT / "data" / "incidents.json")
+    assert col.count() == before
+
+
+def test_deleting_an_incident_removes_its_chunks():
+    col = store.collection(store.INCIDENTS)
+    col.delete(where={"ref": {"$eq": "INC1007"}})
     inc, _, _ = retrieve(service="notifications")
     assert "INC1007" not in inc
-    with connect() as conn:
-        left = conn.execute("SELECT count(*) AS n FROM incident_chunks WHERE service='notifications'").fetchone()["n"]
-    assert left == 0
+    assert col.get(where={"service": {"$eq": "notifications"}})["ids"] == []

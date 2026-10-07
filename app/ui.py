@@ -3,7 +3,6 @@ import os
 import sys
 from pathlib import Path
 
-import psycopg
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
@@ -12,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.ids import tenant_uuid  # noqa: E402
 from app.models import AskResponse, Evidence, Scope  # noqa: E402
 from app.rag import RagService  # noqa: E402
+from app.store import STORE_ERRORS  # noqa: E402
 
 MODE_BADGE = {
     "grounded": ("Grounded", "green"),
@@ -28,14 +28,15 @@ st.set_page_config(page_title="Fireline RAG", page_icon="🔥", layout="wide")
 
 try:
     google_api_key = st.secrets.get("GOOGLE_API_KEY")
-    database_url = st.secrets.get("DATABASE_URL")
+    chroma_secrets = {k: st.secrets.get(k) for k in ("CHROMA_API_KEY", "CHROMA_TENANT", "CHROMA_DATABASE")}
 except StreamlitSecretNotFoundError:
     google_api_key = None
-    database_url = None
+    chroma_secrets = {}
 if google_api_key and not os.environ.get("GOOGLE_API_KEY"):
     os.environ["GOOGLE_API_KEY"] = str(google_api_key)
-if database_url and not os.environ.get("DATABASE_URL"):
-    os.environ["DATABASE_URL"] = str(database_url)
+for _key, _value in chroma_secrets.items():
+    if _value and not os.environ.get(_key):
+        os.environ[_key] = str(_value)
 
 
 @st.cache_resource
@@ -104,8 +105,8 @@ if st.button("Ask", type="primary", disabled=len(question.strip()) < 3):
     try:
         with st.spinner("Retrieving evidence and asking Gemini..."):
             res = get_service().ask(question.strip()[:1000], scope)
-    except psycopg.Error:
-        st.error("Retrieval is unavailable (database error). Is Postgres up and migrated/ingested?")
+    except STORE_ERRORS:
+        st.error("Retrieval is unavailable (database error). Is Chroma reachable and ingested?")
     except Exception as exc:  # missing API keys etc.
         st.error(f"{type(exc).__name__}: {exc}")
     else:

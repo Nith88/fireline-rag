@@ -1,11 +1,11 @@
 import logging
 from uuid import UUID
 
-import psycopg
 from fastapi import FastAPI, Header, HTTPException
 
 from app.models import AskRequest, AskResponse, Scope
 from app.rag import RagService
+from app.store import STORE_ERRORS
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="Fireline RAG", version="0.1.0")
@@ -29,5 +29,5 @@ def ask(req: AskRequest, x_tenant_id: UUID = Header(description="Tenant from you
     scope = Scope(tenant_id=x_tenant_id, service=req.service, environment=req.environment, region=req.region)
     try:
         return get_service().ask(req.question, scope)
-    except psycopg.Error:
+    except STORE_ERRORS:
         raise HTTPException(status_code=503, detail={"code": "RETRIEVAL_UNAVAILABLE"})

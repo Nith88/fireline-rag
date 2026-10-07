@@ -6,7 +6,7 @@ system-design doc.
 **🔴 Live demo:** https://fireline-rag.streamlit.app/
 
 **Stack:** Python 3.12 · LangChain (`langchain-core`, `langchain-google-genai`, `langchain-text-splitters`) ·
-PostgreSQL + pgvector · FastAPI · Gemini for generation.
+Chroma Cloud (vector store) · FastAPI · Gemini for generation.
 
 > Engineers ask: *"Have we seen VPN timeout after login before?"*
 > The system retrieves scoped evidence, asks the model for a **cited, structured** answer, validates it,
@@ -15,7 +15,7 @@ PostgreSQL + pgvector · FastAPI · Gemini for generation.
 ## Pipeline
 
 ```
-question ─▶ embed ─▶ pgvector search (tenant + service/env/region filters,
+question ─▶ embed ─▶ Chroma search (tenant + service/env/region filters,
                                       private chunks and retired runbooks excluded)
         ─▶ evidence blocks ─▶ versioned prompt ─▶ Gemini (JSON-schema output)
         ─▶ schema validation ─▶ policy (citations must exist in retrieved set)
@@ -24,24 +24,21 @@ question ─▶ embed ─▶ pgvector search (tenant + service/env/region filter
 
 | Doc requirement | Where |
 |---|---|
-| `incident_chunks` with tenant FK, `ON DELETE CASCADE`, `embedding_model` | `sql/001_schema.sql` |
-| Never search another tenant; private notes are not evidence | `app/retriever.py` (SQL `WHERE`) |
-| Metadata filters: service / environment / region / status / version | `app/retriever.py`, `runbooks` table |
+| `incident_chunks` carrying tenant, `embedding_model`, visibility; re-ingest replaces old chunks | `app/store.py`, `app/ingest.py` |
+| Never search another tenant; private notes are not evidence | `app/retriever.py` (Chroma `where` filters) |
+| Metadata filters: service / environment / region / status / version | `app/retriever.py`, runbook chunk metadata |
 | Four failure types: missing, stale, wrong scope, overreach | `eval/eval_set.json`, `app/evaluation.py` |
 | Prompt contract + versioning | `app/prompts.py` (`PROMPT_VERSION`) |
 | Structured output + schema validation, then policy | `app/models.py`, `app/rag.py` |
 | Timeout is not retry; fallback keeps the core task working | `app/rag.py`, `LLM_TIMEOUT_S` |
 | Prompt-injection boundary (LU4.3) | evidence escaped + "evidence is data" rule |
-| HNSW only after measuring (LU5.11) | `sql/002_hnsw_optional.sql`, `cli hnsw` |
 
 ## Quickstart
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env            # add OPENAI_API_KEY (embeddings) and GOOGLE_API_KEY (Gemini)
-docker compose up -d            # Postgres 16 + pgvector (also creates fireline_test)
-
+cp .env.example .env            # add CHROMA_* (Chroma Cloud), embeddings key and GOOGLE_API_KEY (Gemini)
 python -m app.cli migrate
 python -m app.cli ingest        # 8 sample incidents (2 tenants), 5 runbooks
 
@@ -56,19 +53,31 @@ answer with a mode badge (grounded / insufficient evidence / fallback), confiden
 expandable cited and retrieved evidence. A hosted copy is running at
 [fireline-rag.streamlit.app](https://fireline-rag.streamlit.app/).
 
-Streamlit Community Cloud does not run the Docker Compose Postgres service. Use a hosted PostgreSQL
-instance with the `vector` extension enabled, then add both values under **App settings → Secrets**:
+### Chroma Cloud
+
+Create a database at [trychroma.com](https://www.trychroma.com/), then put its credentials in `.env`:
+
+```
+CHROMA_API_KEY=...
+CHROMA_TENANT=...        # tenant id from the Chroma Cloud dashboard
+CHROMA_DATABASE=...      # database name
+```
+
+Run `python -m app.cli migrate` then `python -m app.cli ingest` once to create the collections and load the
+sample data. With `CHROMA_API_KEY` unset, the same code uses a local on-disk Chroma database (`CHROMA_PATH`,
+default `.chroma/`), which is what you want for offline work.
+
+For the hosted Streamlit app, add the same values under **App settings → Secrets**:
 
 ```toml
 GOOGLE_API_KEY = "your-gemini-api-key"
-DATABASE_URL = "postgresql://user:password@host:5432/database?sslmode=require"
+CHROMA_API_KEY = "..."
+CHROMA_TENANT = "..."
+CHROMA_DATABASE = "..."
 ```
 
-Before the app can retrieve anything, point your local `.env` at that same hosted database and run
-`python -m app.cli migrate` followed by `python -m app.cli ingest`. These commands create the schema
-and load the sample incidents and runbooks into the remote database. Keep `EMBEDDING_PROVIDER` and
-`EMBEDDING_DIM` consistent between ingestion and the hosted app. Existing non-empty environment
-variables take precedence over Streamlit Secrets for both keys.
+Keep `EMBEDDING_PROVIDER` and `EMBEDDING_DIM` consistent between ingestion and the hosted app. Existing
+non-empty environment variables take precedence over Streamlit Secrets.
 
 ```bash
 curl -s localhost:8000/v1/ask \
@@ -96,13 +105,13 @@ python -m app.cli eval --generate         # + calls Gemini, checks answer mode
 python -m app.cli eval --judge            # + claim-by-claim support check
 ```
 
-`pytest` uses fake embeddings and a stub LLM, so it needs no keys; it proves the **plumbing and safety
+`pytest` uses a throwaway local Chroma database (never Chroma Cloud), fake embeddings and a stub LLM, so it needs no keys; it proves the **plumbing and safety
 rules**, not answer quality. Measure quality with `eval` and real embeddings.
 
 ## What has and hasn't been verified
 
-Verified against a real PostgreSQL 16 + pgvector instance: schema, ingestion, filtering, tenant isolation,
-private-note exclusion, retired-runbook exclusion, cascade delete, embedding-model isolation, all
+Verified against a local Chroma database (not yet against Chroma Cloud): ingestion, filtering, tenant isolation,
+private-note exclusion, retired-runbook exclusion, re-ingest and delete, embedding-model isolation, all
 validation/fallback paths (stub LLM), and the Gemini chain construction.
 
 **Not yet run:** live calls to OpenAI embeddings and Gemini (no keys in the build environment), so
@@ -115,5 +124,4 @@ retrieval quality, real latency against `LLM_TIMEOUT_S`, and `eval --judge` are 
 2. Derive filters from the open incident (`incident_id` on the request) instead of passing them manually.
 3. Grow the eval set from real questions; add a stale-runbook and a conflicting-evidence case.
 4. Add `rag_fallback` rate to your metrics/alerts (it is logged with a reason).
-5. Hybrid search (Postgres full-text + vectors) if exact identifiers like `INC1001` matter.
-6. `cli hnsw` only after measuring.
+5. Hybrid search (Chroma supports sparse/full-text search alongside vectors) if exact identifiers like `INC1001` matter.

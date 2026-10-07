@@ -5,29 +5,25 @@ import sys
 from pathlib import Path
 
 from app.config import get_settings
-from app.db import connect
 from app.ids import tenant_uuid
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def cmd_migrate(_):
-    sql = (ROOT / "sql" / "001_schema.sql").read_text().replace("__EMBEDDING_DIM__", str(get_settings().embedding_dim))
-    with connect(autocommit=True) as conn:
-        conn.execute(sql)
-    print(f"schema ready (vector dim {get_settings().embedding_dim})")
+    """Create the collections (idempotent). Chroma needs no schema; the vector size is set by the first insert."""
+    from app import store
+
+    for kind in (store.INCIDENTS, store.RUNBOOKS):
+        store.collection(kind)
+    print(f"collections ready (embedding dim {get_settings().embedding_dim})")
 
 
 def cmd_reset(_):
-    with connect(autocommit=True) as conn:
-        conn.execute("DROP TABLE IF EXISTS runbook_chunks, runbooks, incident_chunks, incidents CASCADE")
-    print("tables dropped")
+    from app import store
 
-
-def cmd_hnsw(_):
-    with connect(autocommit=True) as conn:
-        conn.execute((ROOT / "sql" / "002_hnsw_optional.sql").read_text())
-    print("HNSW indexes created")
+    store.reset()
+    print("collections dropped")
 
 
 def cmd_ingest(args):
@@ -86,7 +82,6 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("migrate").set_defaults(fn=cmd_migrate)
     sub.add_parser("reset").set_defaults(fn=cmd_reset)
-    sub.add_parser("hnsw", help="optional ANN indexes; measure first").set_defaults(fn=cmd_hnsw)
 
     ing = sub.add_parser("ingest")
     ing.add_argument("--incidents", default=str(ROOT / "data" / "incidents.json"))

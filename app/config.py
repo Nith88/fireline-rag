@@ -22,7 +22,12 @@ DEFAULT_DIMS = {"openai": 1536, "voyage": 1024, "local": 384, "gemini": 768, "fa
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql://fireline:fireline@localhost:5433/fireline"
+    # Chroma Cloud when chroma_api_key is set; otherwise a local on-disk database at chroma_path.
+    chroma_api_key: str | None = None
+    chroma_tenant: str | None = None
+    chroma_database: str | None = None
+    chroma_path: str = ".chroma"
+    chroma_prefix: str = ""  # prepended to collection names (tests use "test_")
 
     embedding_provider: str = "gemini"  # one of DEFAULT_MODELS.keys()
     google_api_key: str | None = None

@@ -14,7 +14,7 @@ class Scope(BaseModel):
 
 
 class Evidence(BaseModel):
-    eid: str  # "I-123" (incident chunk) or "R-45" (runbook chunk): what the model cites
+    eid: str  # "I-INC1001-resolution-0" (incident chunk) or "R-vpn-india-v3-0" (runbook chunk): what the model cites
     kind: Literal["incident", "runbook"]
     ref: str  # "INC1001" or "vpn-india v3"
     source: str  # title | description | timeline | log | resolution | runbook
