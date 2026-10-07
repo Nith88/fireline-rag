@@ -24,7 +24,9 @@ log = logging.getLogger("fireline.rag")
 def build_chat_model(max_tokens: int, timeout: float, max_retries: int, model: str | None = None) -> ChatGoogleGenerativeAI:
     s = get_settings()
     # max_tokens is generous because Gemini "thinking" tokens count against the output budget.
-    return ChatGoogleGenerativeAI(model=model or s.llm_model, max_output_tokens=max_tokens, timeout=timeout, max_retries=max_retries)
+    return ChatGoogleGenerativeAI(
+        model=model or s.llm_model, google_api_key=s.google_api_key, max_output_tokens=max_tokens, timeout=timeout, max_retries=max_retries
+    )
 
 
 def build_structured_llm() -> Runnable:
