@@ -19,7 +19,8 @@ from app.config import get_settings
 INCIDENTS = "incident_chunks"
 RUNBOOKS = "runbook_chunks"
 RECORDS = "incident_records"  # one record per incident with its structured fields, for analytics
-ALL_COLLECTIONS = (INCIDENTS, RUNBOOKS, RECORDS)
+DOCUMENTS = "document_chunks"  # chunks of tenant-uploaded PDFs
+ALL_COLLECTIONS = (INCIDENTS, RUNBOOKS, RECORDS, DOCUMENTS)
 ANY_REGION = "*"  # runbook region NULL = applies to every region
 
 # What the API / UI map to "retrieval unavailable".

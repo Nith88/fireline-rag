@@ -98,3 +98,17 @@ def test_llm_failure_falls_back_with_overview():
 def test_empty_scope_skips_the_llm():
     res = agent().run("overview", scope("nobody"))
     assert res.mode == "no_data" and res.report is None
+
+
+def test_gathering_switches_to_the_fallback_model():
+    class Busy:
+        def bind_tools(self, tools):
+            def boom(_):
+                raise RuntimeError("503 UNAVAILABLE")
+
+            return RunnableLambda(boom)
+
+    a = AnalyticsAgent(tool_llm=[Busy(), ScriptedToolLLM([("incident_counts", {"group_by": "status"})])],
+                       report_llm=RunnableLambda(lambda _: report()), search_factory=lambda s: lambda q, k: [])
+    res = a.run("overview", scope("acme"))
+    assert res.mode == "report" and res.steps == ['incident_counts({"group_by": "status"})']

@@ -10,6 +10,9 @@ from streamlit.errors import StreamlitSecretNotFoundError
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.analytics import AnalyticsAgent, AnalyticsResult  # noqa: E402
+from app.documents import (DocumentError, DocumentReporter, DocumentReportResult, delete_document, document_service,  # noqa: E402
+                           ingest_document, list_documents)
+from app.emailer import EmailError, email_configured, send_report  # noqa: E402
 from app.ids import tenant_uuid  # noqa: E402
 from app.models import AskResponse, Evidence, Scope  # noqa: E402
 from app.rag import RagService  # noqa: E402
@@ -35,7 +38,7 @@ st.set_page_config(page_title="Fireline RAG", page_icon="🔥", layout="wide")
 
 try:
     google_api_key = st.secrets.get("GOOGLE_API_KEY")
-    chroma_secrets = {k: st.secrets.get(k) for k in ("CHROMA_API_KEY", "CHROMA_TENANT", "CHROMA_DATABASE")}
+    chroma_secrets = {k: st.secrets.get(k) for k in ("CHROMA_API_KEY", "CHROMA_TENANT", "CHROMA_DATABASE", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM", "EMAIL_ALLOWLIST")}
 except StreamlitSecretNotFoundError:
     google_api_key = None
     chroma_secrets = {}
@@ -148,11 +151,45 @@ def render_report(res: AnalyticsResult) -> None:
     render_overview(res.overview)
 
 
+def render_doc_report(res: DocumentReportResult) -> None:
+    if res.mode == "report":
+        st.markdown(":green-badge[Report]")
+        st.subheader(res.report.title)
+        st.markdown(res.report.summary)
+        for sec in res.report.sections:
+            st.markdown(f"**{sec.heading}**")
+            st.markdown(sec.body)
+    elif res.mode == "no_data":
+        st.warning("Select at least one indexed document first.")
+    else:
+        st.error(f"The model report was not usable ({res.fallback_reason}). Try rephrasing or generate it again.")
+    if res.truncated:
+        st.warning("The documents were too long; the report is based on the first part only.")
+    st.caption(f"{', '.join(res.documents)} · {res.latency_ms} ms · {res.prompt_version}")
+
+
+def render_email_box(res: DocumentReportResult) -> None:
+    st.subheader("Email this report")
+    if not email_configured():
+        st.caption("Email is not configured on this server (set SMTP_HOST, SMTP_FROM and EMAIL_ALLOWLIST).")
+        return
+    to = st.text_input("Send to", key="email_to", placeholder="name@your-company.com")
+    st.caption("Reports can only be sent to addresses on the server's allowed recipients list.")
+    if st.button("Send email", disabled=not to.strip()):
+        try:
+            with st.spinner("Sending..."):
+                send_report(to, res.report, res.documents)
+        except EmailError as exc:
+            st.error(str(exc))
+        else:
+            st.success(f"Sent to {to.strip()}.")
+
+
 def show_store_error() -> None:
     st.error("Retrieval is unavailable (database error). Is Chroma reachable and ingested?")
 
 
-tab_ask, tab_reports = st.tabs(["Ask", "Reports"])
+tab_ask, tab_reports, tab_docs = st.tabs(["Ask", "Reports", "Documents"])
 
 with tab_ask:
     st.header("Ask about past incidents and runbooks")
@@ -189,3 +226,71 @@ with tab_reports:
             st.error(f"{type(exc).__name__}: {exc}")
         else:
             render_report(report_res)
+
+with tab_docs:
+    st.header("Incident report PDFs")
+    st.caption("Upload text-based incident report PDFs (max 10 MB, 100 pages). They are indexed for the tenant "
+               "in the sidebar and are only visible to that tenant. Scanned/image-only PDFs are not supported.")
+    tenant_id = tenant_uuid(tenant.strip() or "acme")
+
+    uploads = st.file_uploader("Upload PDF(s)", type=["pdf"], accept_multiple_files=True)
+    if uploads and st.button("Index uploaded PDFs", type="primary"):
+        for f in uploads:
+            try:
+                with st.spinner(f"Indexing {f.name}..."):
+                    info = ingest_document(tenant_id, f.name, f.getvalue())
+            except DocumentError as exc:
+                st.error(f"{f.name}: {exc}")
+            except STORE_ERRORS:
+                show_store_error()
+            except Exception as exc:  # missing API keys, embedding quota etc.
+                st.error(f"{f.name}: {type(exc).__name__}: {exc}")
+            else:
+                st.success(f"{info.filename}: {info.pages} pages, {info.chunks} chunks indexed.")
+
+    try:
+        docs = list_documents(tenant_id)
+    except STORE_ERRORS:
+        docs = []
+        show_store_error()
+    by_id = {d.doc_id: d for d in docs}
+    selected = st.multiselect(
+        "Documents to use", options=list(by_id), default=list(by_id), format_func=lambda i: f"{by_id[i].filename} ({by_id[i].pages} pages)",
+        placeholder="No documents indexed yet" if not docs else "Choose documents",
+    )
+    if selected and st.button("Delete selected documents"):
+        for i in selected:
+            delete_document(tenant_id, i)
+        st.rerun()
+
+    st.subheader("Ask a question")
+    doc_question = st.text_area("Question about the documents", key="doc_question", height=80,
+                                placeholder="What was the root cause and how was it fixed?")
+    if st.button("Ask documents", disabled=len(doc_question.strip()) < 3 or not selected):
+        try:
+            with st.spinner("Retrieving from the documents and asking Gemini..."):
+                doc_res = document_service(selected).ask(doc_question.strip()[:1000], Scope(tenant_id=tenant_id))
+        except STORE_ERRORS:
+            show_store_error()
+        except Exception as exc:
+            st.error(f"{type(exc).__name__}: {exc}")
+        else:
+            render_response(doc_res)
+
+    st.subheader("Generate a report")
+    doc_request = st.text_area("What should the report cover?", key="doc_request", height=80,
+                               placeholder="Summarise the incident: timeline, root cause, impact and follow-up actions")
+    if st.button("Generate document report", type="primary", disabled=len(doc_request.strip()) < 3 or not selected):
+        try:
+            with st.spinner("Reading the documents and writing the report..."):
+                st.session_state["doc_report"] = DocumentReporter().run(doc_request.strip()[:1000], tenant_id, selected)
+        except STORE_ERRORS:
+            show_store_error()
+        except Exception as exc:
+            st.error(f"{type(exc).__name__}: {exc}")
+    # Kept in session state so the email button (which reruns the script) does not lose the report.
+    doc_report = st.session_state.get("doc_report")
+    if doc_report is not None:
+        render_doc_report(doc_report)
+        if doc_report.mode == "report":
+            render_email_box(doc_report)

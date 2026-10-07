@@ -2,6 +2,7 @@
 langchain-core>=0.3
 langchain-google-genai>=2.0       # generation (Gemini)
 langchain-text-splitters>=0.3
+pypdf>=5.0                        # PDF text extraction (uploaded incident reports)
 chromadb>=1.0                     # vector store (Chroma Cloud, or local on disk)
 pydantic>=2.7
 pydantic-settings>=2.3

@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     llm_fallback_model: str | None = "gemini-3.5-flash-lite"  # used when the primary model errors (e.g. 503)
     llm_timeout_s: float = 30.0  # Gemini rejects deadlines under 10 s
 
+    # Outgoing email (SMTP). Reports can only be sent to addresses matching email_allowlist: a comma-separated
+    # list of exact addresses ("ops@acme.com") and/or domains ("@acme.com").
+    smtp_host: str | None = None
+    smtp_port: int = 587  # 587 = STARTTLS, 465 = implicit TLS
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    email_allowlist: str = ""
+
     k_incidents: int = 5
     k_runbooks: int = 3
     min_similarity: float = 0.25

@@ -193,15 +193,24 @@ def _quote(label: str, payload: str) -> str:
 
 # ---------- agent ----------
 
-def build_llms() -> tuple[Runnable, Runnable]:
+def build_report_llm() -> Runnable:
+    """Structured Report writer. Timeout is not retry (max_retries=0); it switches to the fallback model on
+    provider errors such as a 503 "high demand"."""
     s = get_settings()
-    # Timeout is not retry (max_retries=0). The report call falls back to a second model on provider errors.
-    tool_llm = build_chat_model(1500, s.llm_timeout_s, 0)
     primary = build_chat_model(4000, s.llm_timeout_s, 0).with_structured_output(Report, method="json_schema")
     if not s.llm_fallback_model:
-        return tool_llm, primary
+        return primary
     backup = build_chat_model(4000, s.llm_timeout_s, 0, model=s.llm_fallback_model).with_structured_output(Report, method="json_schema")
-    return tool_llm, primary.with_fallbacks([backup])
+    return primary.with_fallbacks([backup])
+
+
+def build_llms() -> tuple[list, Runnable]:
+    """(tool-calling models, report writer). Both phases switch to the fallback model on provider errors."""
+    s = get_settings()
+    tool_llms = [build_chat_model(1500, s.llm_timeout_s, 0)]
+    if s.llm_fallback_model:
+        tool_llms.append(build_chat_model(1500, s.llm_timeout_s, 0, model=s.llm_fallback_model))
+    return tool_llms, build_report_llm()
 
 
 class AnalyticsAgent:
@@ -263,7 +272,10 @@ class AnalyticsAgent:
     def _gather(self, request: str, tools: list[StructuredTool], steps: list[str]) -> list[str]:
         tool_llm, _ = self._llms()
         by_name = {t.name: t for t in tools}
-        runner = tool_llm.bind_tools(tools)
+        # Tools are bound per model, then chained: bind_tools does not exist on a fallback wrapper.
+        models = tool_llm if isinstance(tool_llm, (list, tuple)) else [tool_llm]
+        bound = [m.bind_tools(tools) for m in models]
+        runner = bound[0].with_fallbacks(bound[1:]) if len(bound) > 1 else bound[0]
         messages = [SystemMessage(GATHER_SYSTEM), HumanMessage(f"REQUEST\n{request}")]
         gathered: list[str] = []
         for _ in range(MAX_STEPS):

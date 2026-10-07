@@ -69,6 +69,26 @@ structured-output call writes the report from that data only.
 - Each report makes 2-4 Gemini calls. The free tier allows about 5 per minute per model, so back-to-back reports
   can fall back to the overview with `llm_error:GoogleRateLimitError`.
 
+### Uploaded incident report PDFs
+
+The **Documents** tab lets a tenant upload text-based incident report PDFs ([app/documents.py](app/documents.py)),
+ask questions about them and generate reports, then email a report ([app/emailer.py](app/emailer.py)).
+
+- PDFs are extracted with `pypdf`, chunked, embedded and stored in the `document_chunks` collection, tagged with the
+  tenant. Every read and delete filters on the tenant, so one tenant cannot see or remove another's files.
+- Limits: 10 MB, 100 pages, 400 chunks. Scanned/image-only and password-protected PDFs are rejected with a message.
+  Re-uploading identical content replaces the document instead of duplicating it.
+- Questions reuse the same pipeline as **Ask** (cited answers, invalid citations rejected, raw-evidence fallback).
+- Reports are one structured Gemini call over the document text. A report that mentions an identifier
+  (`INC-1234`, ...) that is not in the source text is rejected.
+- Uploaded text is untrusted: it is escaped and quoted as data, and the model is told never to follow instructions in it.
+
+**Email** uses SMTP and can only send to addresses on `EMAIL_ALLOWLIST` (exact addresses and/or `@domain` entries),
+because a public app with an open "send to anyone" button would be a spam relay. The subject and body are a fixed
+template around the report. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and
+`EMAIL_ALLOWLIST` in `.env` or in the Streamlit **Secrets** (Gmail needs an App Password). Without them the email box
+explains that email is not configured. Report PDFs are not attached; the report is sent as plain text.
+
 ### Chroma Cloud
 
 Create a database at [trychroma.com](https://www.trychroma.com/), then put its credentials in `.env`:
