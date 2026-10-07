@@ -154,6 +154,18 @@ validation/fallback paths (stub LLM), and the Gemini chain construction.
 retrieval quality, real latency against `LLM_TIMEOUT_S`, and `eval --judge` are untested. Run
 `eval --judge` first once keys are set.
 
+## Version history
+
+The four most recent commits, newest first. Versions are numbered oldest to newest from v0.1; they are labels in this
+table only (no git tags).
+
+| Version | Commit | Date | Change |
+|---|---|---|---|
+| **v0.4** | `329db28` | **PDF incident reports.** Tenants upload text PDFs, ask cited questions, generate reports and email them over SMTP to allow-listed recipients. Adds `app/documents.py`, `app/emailer.py`, a Documents tab, a `document_chunks` collection, and `SMTP_*` / `EMAIL_ALLOWLIST` settings. The analytics gathering step now falls back to the backup model on a 503. |
+| **v0.3** | `c8d455b` | **Analytics agent.** A Reports tab where an agent gathers counts, listings and semantic-search results with tenant-bound tools, then writes a report. Reports that cite an unknown incident id are rejected. Adds `app/analytics.py` and an `incident_records` collection (re-run `cli ingest`). |
+| **v0.2** | `b4384ff` | **Hosted-app fixes.** Gemini API key passed explicitly to the chat model; scope passed to the retriever as a dict so Streamlit module reloads cannot break the `Scope` type check; the LLM fallback now logs its traceback. |
+| **v0.1** | `180da4e` | **`Scope` re-validation.** First attempt at the Streamlit reload `Scope` error, by re-validating through `Scope.model_validate`. Superseded by v0.2. |
+
 ## Next steps
 
 1. Run `eval --judge` with real keys; tune `MIN_SIMILARITY` (0.25 is a starting guess) and `K_*`.
